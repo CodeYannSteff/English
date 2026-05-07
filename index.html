@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROJECT: RIPPLE | The Grand Stage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400;1,600&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        obsidian: '#050505',
+                        charcoal: '#121212',
+                        ivory: '#F9FAFB',
+                        gold: '#D4AF37',
+                        goldMuted: '#9CA3AF',
+                        crimson: '#7F1D1D',
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Inter"', 'sans-serif'],
+                        mono: ['"Space Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --cursor-x: 50vw;
+            --cursor-y: 50vh;
+        }
+
+        body,
+        html {
+            background-color: #050505;
+            color: #E5E7EB;
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            cursor: none;
+            scroll-behavior: smooth;
+        }
+
+        /* --- Minimalist Master's Cursor --- */
+        #custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(calc(var(--cursor-x) - 20px), calc(var(--cursor-y) - 20px));
+            transition: width 0.3s ease, height 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+            mix-blend-mode: difference;
+        }
+
+        #custom-cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+        body:hover #custom-cursor {
+            opacity: 1;
+        }
+
+        .hover-target:hover~#custom-cursor,
+        button:hover~#custom-cursor {
+            width: 60px;
+            height: 60px;
+            transform: translate(calc(var(--cursor-x) - 30px), calc(var(--cursor-y) - 30px));
+            border-color: #D4AF37;
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        /* --- Textures & Glows --- */
+        .film-grain {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9000;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .ambient-glow {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.03) 0%, transparent 50%);
+        }
+
+        .gold-text {
+            background: linear-gradient(135deg, #FDE68A 0%, #D4AF37 50%, #B45309 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+        }
+
+        /* --- Elegant Dark Curtains --- */
+        #curtain-container {
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            display: flex;
+            pointer-events: none;
+        }
+
+        .curtain {
+            width: 50%;
+            height: 100%;
+            position: relative;
+            background: #0A0A0A;
+            border-bottom: 2px solid #D4AF37;
+            transition: transform 2.5s cubic-bezier(0.65, 0, 0.35, 1);
+        }
+
+        .curtain.left {
+            transform-origin: left top;
+            border-right: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        .curtain.right {
+            transform-origin: right top;
+            border-left: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        .curtain.left.open {
+            transform: scaleX(0);
+        }
+
+        .curtain.right.open {
+            transform: scaleX(0);
+        }
+
+        #countdown {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: #050505;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s ease-in-out;
+        }
+
+        #countdown-num {
+            font-size: 6rem;
+            font-family: 'Playfair Display', serif;
+            color: #D4AF37;
+            font-weight: 300;
+            transition: transform 0.3s ease;
+        }
+
+        /* --- ADVANCED STORYBOARD ANIMATIONS --- */
+        #stage-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .episode-tab {
+            transition: all 0.4s ease;
+            position: relative;
+        }
+
+        .episode-tab::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 1px;
+            background: #D4AF37;
+            transition: width 0.4s ease;
+        }
+
+        .episode-tab.active {
+            color: #D4AF37;
+        }
+
+        .episode-tab.active::after {
+            width: 100%;
+        }
+
+        /* Node Entry Animation */
+        @keyframes nodeShatterIn {
+            0% {
+                transform: scale(0.5) translateZ(-500px) rotateY(45deg);
+                opacity: 0;
+                filter: blur(10px);
+            }
+
+            100% {
+                transform: scale(1) translateZ(0) rotateY(0);
+                opacity: 1;
+                filter: blur(0);
+            }
+        }
+
+        /* Ring Spin Animation */
+        @keyframes ringSpin {
+            0% {
+                transform: rotate(0deg) scale(1.5);
+                border-color: transparent;
+                border-top-color: #D4AF37;
+            }
+
+            100% {
+                transform: rotate(360deg) scale(1);
+                border-color: rgba(212, 175, 55, 0.3);
+                border-top-color: #D4AF37;
+            }
+        }
+
+        .story-node-wrapper {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            /* Will be animated via JS */
+        }
+
+        .stage-mark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #121212;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 20;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .control-ring {
+            position: absolute;
+            inset: -15px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        /* Animated classes applied by JS */
+        .story-node-wrapper.animate-in {
+            animation: nodeShatterIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .story-node-wrapper.animate-in .control-ring {
+            animation: ringSpin 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .story-node-wrapper.animate-in .stage-mark {
+            border-color: #D4AF37;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(212, 175, 55, 0.1);
+        }
+
+        .story-node-wrapper.animate-in.is-target .stage-mark {
+            border-color: #7F1D1D;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(127, 29, 29, 0.2);
+        }
+
+        .story-node-wrapper.animate-in.is-target .control-ring {
+            animation: ringSpin 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            border-color: rgba(127, 29, 29, 0.3);
+            border-top-color: #7F1D1D;
+        }
+
+        .script-card {
+            background: #F9FAFB;
+            color: #111827;
+            padding: 40px;
+            border-radius: 2px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            border-left: 4px solid #D4AF37;
+            transform: translateY(30px);
+            opacity: 0;
+            transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .story-node-wrapper.animate-in .script-card {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .story-node-wrapper.is-target .script-card {
+            border-left-color: #7F1D1D;
+        }
+
+        /* SVG Dynamic Paths */
+        .svg-path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.05);
+            stroke-width: 2;
+            transition: stroke 0.5s ease;
+        }
+
+        .svg-path.active {
+            stroke: rgba(212, 175, 55, 0.3);
+        }
+
+        .svg-pulse {
+            fill: none;
+            stroke: #D4AF37;
+            stroke-width: 3;
+            stroke-dasharray: 10 1000;
+            stroke-dashoffset: 1000;
+            filter: drop-shadow(0 0 8px #D4AF37);
+        }
+
+        @keyframes drawPulse {
+            0% {
+                stroke-dashoffset: 1000;
+                opacity: 1;
+            }
+
+            100% {
+                stroke-dashoffset: 0;
+                opacity: 0;
+            }
+        }
+
+        /* --- 3D Gallery --- */
+        .gallery-container {
+            perspective: 1200px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .gallery-card {
+            width: 100%;
+            max-width: 380px;
+            height: 520px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s;
+            cursor: none;
+        }
+
+        .gallery-card-inner {
+            position: absolute;
+            inset: 0;
+            background: #121212;
+            border: 1px solid #333;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transform: translateZ(0);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .gallery-card:hover .gallery-card-inner {
+            border-color: #D4AF37;
+        }
+
+        .card-content {
+            transform: translateZ(30px);
+            padding: 40px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            z-index: 2;
+            position: relative;
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-40px);
+            transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-left.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #050505;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #D4AF37;
+        }
+    </style>
+</head>
+
+<body class="selection:bg-gold selection:text-obsidian">
+
+    <div id="custom-cursor"></div>
+    <div class="film-grain"></div>
+    <div class="ambient-glow"></div>
+
+    <div id="countdown">
+        <div id="countdown-num">3</div>
+    </div>
+    <div id="curtain-container">
+        <div class="curtain left" id="curtain-l"></div>
+        <div class="curtain right" id="curtain-r"></div>
+    </div>
+
+    <nav
+        class="fixed w-full top-0 z-40 px-10 py-8 flex justify-between items-center pointer-events-none mix-blend-difference">
+        <div class="font-serif font-bold text-xl tracking-[0.2em] text-white pointer-events-auto hover-target">
+            PROJECT: RIPPLE
+        </div>
+        <div class="text-right pointer-events-auto hover-target hidden md:block">
+            <div class="text-[10px] tracking-widest text-white font-mono uppercase opacity-70">Confidential Overview
+            </div>
+        </div>
+    </nav>
+
+    <div class="fixed right-8 top-1/2 -translate-y-1/2 z-40 flex flex-col space-y-6 items-center mix-blend-difference">
+        <a href="#hero"
+            class="w-1.5 h-1.5 rounded-full bg-white opacity-30 hover:opacity-100 transition-opacity hover-target"></a>
+        <a href="#manifesto"
+            class="w-1.5 h-1.5 rounded-full bg-white opacity-30 hover:opacity-100 transition-opacity hover-target"></a>
+        <a href="#playbook"
+            class="w-1.5 h-1.5 rounded-full bg-white opacity-30 hover:opacity-100 transition-opacity hover-target"></a>
+        <a href="#deployments"
+            class="w-1.5 h-1.5 rounded-full bg-white opacity-30 hover:opacity-100 transition-opacity hover-target"></a>
+    </div>
+
+    <!-- Hero Section -->
+    <section id="hero" class="min-h-screen flex items-center justify-center relative">
+        <div class="z-10 w-full max-w-7xl mx-auto px-8 relative">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+                <div class="text-left w-full md:w-3/4 reveal-left">
+                    <p
+                        class="font-mono text-xs tracking-[0.3em] mb-6 text-gold uppercase opacity-90 border-l border-gold pl-4">
+                        The Grand Design</p>
+                    <h1
+                        class="text-6xl md:text-[9rem] font-serif font-semibold tracking-wide text-white leading-none mb-8">
+                        RIPPLE
+                    </h1>
+                    <p class="text-gray-400 text-xl md:text-3xl font-light max-w-3xl leading-relaxed mt-6">
+                        We orchestrate the invisible strings of society. The world dances, entirely blind to the
+                        director.
+                    </p>
+                </div>
+                <div class="hidden md:block w-1/4 text-right reveal">
+                    <p
+                        class="vertical-text text-gray-600 text-xs font-mono absolute right-16 top-0 h-full flex items-center">
+                        EST. 2024 — INITIATION
+                    </p>
+                </div>
+            </div>
+            <div class="absolute bottom-16 left-8 flex items-center space-x-6 reveal delay-500">
+                <div class="w-12 h-px bg-white/30"></div>
+                <p class="font-mono text-[10px] text-gray-500 tracking-[0.2em] uppercase">Scroll to uncover</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Manifesto -->
+    <section id="manifesto" class="py-32 relative border-t border-white/5 bg-[#080808]">
+        <div class="max-w-7xl mx-auto px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+                <div class="reveal-left relative z-20">
+                    <h2 class="text-4xl md:text-6xl font-serif text-white mb-10 leading-tight">
+                        The Playwright's <br><span class="gold-text italic">Manifesto</span>
+                    </h2>
+                    <div class="w-16 h-px bg-gold mb-10"></div>
+                    <p class="text-lg text-gray-400 leading-loose mb-10 font-light">
+                        Society is an exquisitely rigged stage. We introduce calibrated chaos into monitored
+                        environments, observing the precise trajectory of human fate without revealing our hand. Direct
+                        influence is strictly prohibited; true mastery lies in the invisible manipulation of
+                        circumstance.
+                    </p>
+                    <div class="flex items-start space-x-6 mb-8 hover-target">
+                        <div
+                            class="w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center shrink-0 text-gold font-serif">
+                            I</div>
+                        <div>
+                            <h4 class="text-white text-lg font-medium tracking-wide mb-2">The Orchestrators</h4>
+                            <p class="text-sm text-gray-500 leading-relaxed font-light">Elite tacticians mapping
+                                invisible dominoes. Touching the subject drops the curtain; influence must remain
+                                absolute yet unseen.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-6 hover-target">
+                        <div
+                            class="w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center shrink-0 text-gold font-serif">
+                            II</div>
+                        <div>
+                            <h4 class="text-white text-lg font-medium tracking-wide mb-2">The Final Act</h4>
+                            <p class="text-sm text-gray-500 leading-relaxed font-light">A predetermined, life-altering
+                                target event achieved purely through environmental manipulation.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative h-[600px] reveal flex items-center justify-center">
+                    <div class="w-full max-w-md bg-[#121212] border border-[#222] p-12 shadow-2xl relative">
+                        <div
+                            class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-50">
+                        </div>
+                        <div class="flex justify-between items-center w-full mb-12">
+                            <span class="font-mono text-gray-500 text-[10px] tracking-[0.2em] uppercase">Figure
+                                01</span>
+                            <i class="fas fa-project-diagram text-xl text-gray-600"></i>
+                        </div>
+                        <div class="space-y-6 text-center">
+                            <div
+                                class="w-16 h-16 rounded-full border border-gray-700 mx-auto flex items-center justify-center mb-6">
+                                <div class="w-2 h-2 bg-gold rounded-full"></div>
+                            </div>
+                            <div class="w-px h-16 bg-gradient-to-b from-gray-700 to-transparent mx-auto"></div>
+                            <p class="font-serif text-2xl text-white italic">"A gentle breeze may tear down an empire,
+                                provided the breeze is calculated."</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- NEW: Dynamic Master Playbook (5 Episodes) -->
+    <section id="playbook" class="py-32 relative bg-[#050505] border-y border-white/5 min-h-[1400px]">
+        <svg id="stage-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+
+        <div class="max-w-7xl mx-auto px-8 relative z-10">
+
+            <div class="text-center mb-20 reveal">
+                <span class="font-mono text-gray-500 text-[10px] tracking-[0.4em] uppercase mb-4 block">The Master
+                    Playbook</span>
+                <h2 class="text-5xl md:text-7xl font-serif text-white mb-10">Target <span
+                        class="gold-text italic">Orchestrations</span></h2>
+
+                <!-- Dynamic Episode Tabs -->
+                <div class="flex flex-wrap justify-center gap-6 md:gap-12 font-mono text-xs tracking-widest uppercase">
+                    <button class="episode-tab active hover-target" onclick="loadEpisode(0)">EP. 01</button>
+                    <button class="episode-tab text-gray-600 hover:text-white hover-target" onclick="loadEpisode(1)">EP.
+                        02</button>
+                    <button class="episode-tab text-gray-600 hover:text-white hover-target" onclick="loadEpisode(2)">EP.
+                        03</button>
+                    <button class="episode-tab text-gray-600 hover:text-white hover-target" onclick="loadEpisode(3)">EP.
+                        04</button>
+                    <button class="episode-tab text-gray-600 hover:text-white hover-target" onclick="loadEpisode(4)">EP.
+                        05</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Header for Episode -->
+            <div class="text-center mb-16 h-20">
+                <h3 id="ep-title" class="text-3xl font-serif text-white transition-opacity duration-500">The Umbrella
+                    Effect</h3>
+                <p id="ep-subtitle" class="text-gray-400 font-light mt-2 transition-opacity duration-500">Target: Grumpy
+                    baker finds joy.</p>
+            </div>
+
+            <!-- Container where nodes are injected via JS -->
+            <div id="nodes-container" class="relative w-full max-w-4xl mx-auto flex flex-col space-y-32">
+                <!-- Nodes will be injected here -->
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Deployments -->
+    <section id="deployments" class="py-40 relative border-t border-white/5 bg-[#080808]">
+        <div class="max-w-7xl mx-auto px-8 relative z-10">
+            <div class="text-center mb-28 reveal">
+                <span class="font-mono text-gray-500 text-[10px] tracking-[0.4em] uppercase mb-4 block">Deployment
+                    Strategy</span>
+                <h2 class="text-5xl md:text-6xl font-serif text-white mb-6">Real-World <span
+                        class="gold-text italic">Incursions</span></h2>
+                <p class="text-gray-400 font-light text-xl">Blurring the line between the stage and reality.</p>
+            </div>
+            <div class="grid lg:grid-cols-3 gap-10 gallery-container">
+                <div class="gallery-card reveal" data-tilt>
+                    <div class="gallery-card-inner">
+                        <div class="card-content hover-target">
+                            <div
+                                class="w-12 h-12 rounded bg-[#1A1A1A] border border-[#333] flex items-center justify-center mb-8">
+                                <i class="fas fa-eye text-gold text-xl"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl text-white mb-2">The Lens</h3>
+                            <h4
+                                class="font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-6 border-b border-[#333] pb-4">
+                                AR Application</h4>
+                            <p class="text-gray-400 font-light text-sm leading-relaxed flex-grow">
+                                Users scan urban environments to reveal glowing digital strings connecting seemingly
+                                random objects. Gamifies observation.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-card reveal delay-100" data-tilt>
+                    <div class="gallery-card-inner">
+                        <div class="card-content hover-target">
+                            <div
+                                class="w-12 h-12 rounded bg-[#1A1A1A] border border-[#333] flex items-center justify-center mb-8">
+                                <i class="fas fa-chess-knight text-white text-xl"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl text-white mb-2">Planted Props</h3>
+                            <h4
+                                class="font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-6 border-b border-[#333] pb-4">
+                                Physical Installations</h4>
+                            <p class="text-gray-400 font-light text-sm leading-relaxed flex-grow">
+                                Guerrilla stage-setting in major cities. A perfect tower of pennies on a bench.
+                                Anomalies designed to provoke curiosity.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-card reveal delay-200" data-tilt>
+                    <div class="gallery-card-inner">
+                        <div class="card-content hover-target">
+                            <div
+                                class="w-12 h-12 rounded bg-[#1A1A1A] border border-[#333] flex items-center justify-center mb-8">
+                                <i class="fas fa-phone-slash text-gray-400 text-xl"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl text-white mb-2">The Scripts</h3>
+                            <h4
+                                class="font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-6 border-b border-[#333] pb-4">
+                                Audio Drops</h4>
+                            <p class="text-gray-400 font-light text-sm leading-relaxed flex-grow">
+                                Burner phones left discreetly. When answered, a voice narrates the exact sequence of
+                                social dominoes unfolding live.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-[#030303] py-32 px-8 relative z-10 border-t border-white/5">
+        <div class="max-w-6xl mx-auto flex flex-col items-center text-center">
+            <h2 class="text-4xl md:text-5xl font-serif text-white mb-4">Are you <span
+                    class="gold-text italic">watching?</span></h2>
+            <p class="font-light text-gray-500 text-lg mb-24">Or are you merely reciting the lines written for you?</p>
+            <div class="w-full max-w-4xl border-y border-[#1A1A1A] py-16 mb-24">
+                <span class="font-mono text-[10px] text-gray-600 tracking-[0.3em] uppercase block mb-12">Executive
+                    Architects</span>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <div class="group hover-target">
+                        <strong
+                            class="text-white font-medium text-lg block mb-1 group-hover:text-gold transition-colors">Udrea
+                            Yannis Andrei</strong>
+                        <span class="font-mono text-[10px] text-gray-500 uppercase tracking-widest">Script Writer</span>
+                    </div>
+                    <div class="group hover-target">
+                        <strong
+                            class="text-white font-medium text-lg block mb-1 group-hover:text-gold transition-colors">Pana
+                            Teodor</strong>
+                        <span class="font-mono text-[10px] text-gray-500 uppercase tracking-widest">Script Writer</span>
+                    </div>
+                    <div class="group hover-target">
+                        <strong
+                            class="text-white font-medium text-lg block mb-1 group-hover:text-gold transition-colors">Gurlea
+                            Ciprian</strong>
+                        <span class="font-mono text-[10px] text-gray-500 uppercase tracking-widest">
+                            Script Writer</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col items-center">
+                <div class="w-10 h-10 border border-[#333] rounded-full flex items-center justify-center mb-6">
+                    <i class="fas fa-university text-gray-500 text-sm"></i>
+                </div>
+                <p class="font-mono text-gray-600 tracking-[0.2em] text-[10px] uppercase mb-2">Developed within</p>
+                <p class="font-serif text-xl text-white">Colegiul National "Ion C. Bratianu"</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- Minimalist Cursor ---
+        const root = document.documentElement;
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        let cursorX = mouseX, cursorY = mouseY;
+        document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+        function updateCursor() {
+            cursorX += (mouseX - cursorX) * 0.15; cursorY += (mouseY - cursorY) * 0.15;
+            root.style.setProperty('--cursor-x', `${cursorX}px`); root.style.setProperty('--cursor-y', `${cursorY}px`);
+            requestAnimationFrame(updateCursor);
+        }
+        updateCursor();
+
+        // --- Countdown & Curtains ---
+        const countdownEl = document.getElementById('countdown-num');
+        const countdownScreen = document.getElementById('countdown');
+        const curtainL = document.getElementById('curtain-l');
+        const curtainR = document.getElementById('curtain-r');
+        let count = 3;
+        function runCountdown() {
+            if (count > 0) {
+                countdownEl.innerText = count; countdownEl.style.transform = 'scale(1.05)';
+                setTimeout(() => { countdownEl.style.transform = 'scale(1)'; }, 200);
+                count--; setTimeout(runCountdown, 1000);
+            } else {
+                countdownScreen.style.opacity = '0';
+                setTimeout(() => { countdownScreen.style.display = 'none'; curtainL.classList.add('open'); curtainR.classList.add('open'); }, 800);
+            }
+        }
+        window.addEventListener('load', () => setTimeout(runCountdown, 400));
+
+        // --- DYNAMIC EPISODE DATA ---
+        const episodesData = [
+            {
+                title: "The Umbrella Orchestration",
+                subtitle: "Target Event: Grumpy baker finds joy.",
+                nodes: [
+                    { phase: "Phase I", title: "The Catalyst", icon: "fa-umbrella", text: "Mastermind purchases entire stock of umbrellas at the corner shop.", outcome: "Timing: 4 minutes prior to unforecasted storm.", isTarget: false },
+                    { phase: "Phase II", title: "Displacement", icon: "fa-running", text: "Soaked extra lacks an umbrella, breaks routine to seek shelter.", outcome: "Result: Occupies exact coordinates blocking bakery loading zone.", isTarget: false },
+                    { phase: "Phase III", title: "The Bottleneck", icon: "fa-truck", text: "Displaced extra inadvertently blocks the flour delivery truck.", outcome: "Status: Bakery schedule fatally delayed. Baker agitation rising.", isTarget: false },
+                    { phase: "Target Event", title: "The Final Act", icon: "fa-dog", text: "Furious baker steps into alley. Encounters planted wet stray dog.", outcome: "Conclusion: Emotionally compromised, adopts dog. Orchestration complete.", isTarget: true }
+                ]
+            },
+            {
+                title: "The Caffeine Delay",
+                subtitle: "Target Event: Subject meets future spouse.",
+                nodes: [
+                    { phase: "Phase I", title: "The Tab", icon: "fa-coffee", text: "Mastermind prepays for the next 10 coffees at Subject's local cafe.", outcome: "Timing: Morning rush hour. Cost: Minimal.", isTarget: false },
+                    { phase: "Phase II", title: "The Anchor", icon: "fa-clock", text: "Subject receives free coffee. Stays 5 minutes longer to chat with barista.", outcome: "Result: Subject routine delayed by exactly 310 seconds.", isTarget: false },
+                    { phase: "Phase III", title: "Missed Connection", icon: "fa-train", text: "Subject rushes to station but misses the 08:15 express train.", outcome: "Status: Forced to wait 20 minutes on platform 3.", isTarget: false },
+                    { phase: "Target Event", title: "The Meet-Cute", icon: "fa-heart", text: "Subject drops briefcase. Fellow delayed passenger helps gather papers.", outcome: "Conclusion: Conversation initiated. Marriage inevitable. Orchestration complete.", isTarget: true }
+                ]
+            },
+            {
+                title: "The Crimson Scarf",
+                subtitle: "Target Event: Toxic corporate boss ousted.",
+                nodes: [
+                    { phase: "Phase I", title: "The Drop", icon: "fa-wind", text: "Mastermind drops a bright crimson scarf into a specific wind current.", outcome: "Timing: Perfectly aligned with oncoming cyclist.", isTarget: false },
+                    { phase: "Phase II", title: "The Swerve", icon: "fa-bicycle", text: "Cyclist momentarily distracted by fabric on face, swerves sharply.", outcome: "Result: Avoids crash, but path deviates into plaza center.", isTarget: false },
+                    { phase: "Phase III", title: "The Flock", icon: "fa-dove", text: "Swerve startles 50 plaza pigeons into synchronized chaotic flight.", outcome: "Status: Pigeons crash the outdoor executive board lunch.", isTarget: false },
+                    { phase: "Target Event", title: "The Firing", icon: "fa-briefcase", text: "Toxic CEO overreacts to pigeons, insulting board members in blind rage.", outcome: "Conclusion: Board votes for immediate dismissal. Orchestration complete.", isTarget: true }
+                ]
+            },
+            {
+                title: "The Misplaced Coin",
+                subtitle: "Target Event: Subject changes career.",
+                nodes: [
+                    { phase: "Phase I", title: "The Lure", icon: "fa-coins", text: "Mastermind glues a highly valuable, reflective coin to the pavement.", outcome: "Timing: Subject's exact walking commute path.", isTarget: false },
+                    { phase: "Phase II", title: "The Pause", icon: "fa-hand-holding", text: "Subject spots coin, stops, and bends down to pry it loose.", outcome: "Result: Forward momentum halted for 14 seconds.", isTarget: false },
+                    { phase: "Phase III", title: "The Miss", icon: "fa-exclamation-triangle", text: "A heavy falling scaffold joint misses Subject's head by mere inches.", outcome: "Status: Subject experiences profound adrenaline and mortality shock.", isTarget: false },
+                    { phase: "Target Event", title: "The Epiphany", icon: "fa-palette", text: "Realizing life is fleeting, Subject marches into office and resigns.", outcome: "Conclusion: Subject pursues lifelong dream of art. Orchestration complete.", isTarget: true }
+                ]
+            },
+            {
+                title: "The Static Frequency",
+                subtitle: "Target Event: Estranged brothers reconcile.",
+                nodes: [
+                    { phase: "Phase I", title: "The Hack", icon: "fa-broadcast-tower", text: "Mastermind temporarily jams the local pop radio station with static.", outcome: "Timing: Subject's solitary evening drive home.", isTarget: false },
+                    { phase: "Phase II", title: "The Switch", icon: "fa-sliders-h", text: "Annoyed Subject changes dial, landing randomly on a niche classic station.", outcome: "Result: Station plays an obscure 1980s rock ballad.", isTarget: false },
+                    { phase: "Phase III", title: "The Memory", icon: "fa-brain", text: "Song triggers an intense, unavoidable memory of estranged brother.", outcome: "Status: Subject pulls car over, overwhelmed by sudden nostalgia.", isTarget: false },
+                    { phase: "Target Event", title: "The Call", icon: "fa-phone", text: "Subject dials brother's number after a decade of total silence.", outcome: "Conclusion: Forgiveness achieved. Orchestration complete.", isTarget: true }
+                ]
+            }
+        ];
+
+        let currentEpisode = 0;
+        const container = document.getElementById('nodes-container');
+        const svgCanvas = document.getElementById('stage-canvas');
+
+        function loadEpisode(index) {
+            // Update Tabs UI
+            document.querySelectorAll('.episode-tab').forEach((tab, i) => {
+                tab.className = i === index ? 'episode-tab active hover-target font-bold' : 'episode-tab text-gray-600 hover:text-white hover-target';
+            });
+
+            currentEpisode = index;
+            const ep = episodesData[index];
+
+            // Update Header
+            const titleEl = document.getElementById('ep-title');
+            const subEl = document.getElementById('ep-subtitle');
+            titleEl.style.opacity = 0; subEl.style.opacity = 0;
+
+            setTimeout(() => {
+                titleEl.innerText = ep.title;
+                subEl.innerText = ep.subtitle;
+                titleEl.style.opacity = 1; subEl.style.opacity = 1;
+            }, 500);
+
+            // Clear old nodes and SVG
+            container.innerHTML = '';
+            svgCanvas.innerHTML = '';
+
+            // Generate New Nodes
+            ep.nodes.forEach((node, i) => {
+                const alignLeft = i % 2 === 0;
+                const alignmentClass = alignLeft ? 'items-start md:items-start pl-0 md:pl-[10%]' : 'items-end md:items-end pr-0 md:pr-[10%]';
+                const cardClass = alignLeft ? 'card-left' : 'card-right';
+                const borderColor = node.isTarget ? '#7F1D1D' : '#D4AF37';
+                const bgColor = node.isTarget ? 'bg-red-50' : 'bg-gray-100';
+                const textColor = node.isTarget ? 'text-crimson font-bold' : 'text-gray-800 font-medium';
+
+                const html = `
+                    <div class="story-node-wrapper w-full ${alignmentClass} ${node.isTarget ? 'is-target' : ''}" id="node-wrap-${i}">
+                        <div class="relative flex items-center justify-center w-20 h-20 mb-8 z-20 node-anchor" id="node-anchor-${i}">
+                            <div class="control-ring"></div>
+                            <div class="stage-mark">
+                                <i class="fas ${node.icon} text-2xl text-gold transition-colors z-10"></i>
+                            </div>
+                        </div>
+                        <div class="script-card ${cardClass} relative z-30" style="${node.isTarget ? 'border-left-color: #7F1D1D;' : ''}">
+                            <div class="border-b border-gray-200 pb-4 mb-5">
+                                <span class="font-mono text-[10px] text-gray-500 tracking-widest uppercase block mb-1">${node.phase}</span>
+                                <h4 class="font-serif font-bold text-2xl text-charcoal">${node.title}</h4>
+                            </div>
+                            <p class="text-gray-600 font-light">${node.text}</p>
+                            <p class="${textColor} mt-4 text-sm ${bgColor} p-3 rounded">${node.outcome}</p>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+
+            // Trigger Entry Animation Sequentially
+            setTimeout(() => {
+                const wrappers = document.querySelectorAll('.story-node-wrapper');
+                wrappers.forEach((wrap, i) => {
+                    setTimeout(() => {
+                        wrap.classList.add('animate-in');
+                        if (i > 0) drawConnectionLine(i - 1, i);
+                    }, i * 1200); // Stagger the fly-in and line drawing
+                });
+            }, 600);
+        }
+
+        // --- Dynamic SVG Path Drawing ---
+        function drawConnectionLine(startIndex, endIndex) {
+            const startEl = document.getElementById(`node-anchor-${startIndex}`);
+            const endEl = document.getElementById(`node-anchor-${endIndex}`);
+
+            // Get coordinates relative to the SVG canvas
+            const canvasRect = svgCanvas.getBoundingClientRect();
+            const startRect = startEl.getBoundingClientRect();
+            const endRect = endEl.getBoundingClientRect();
+
+            const startX = startRect.left + startRect.width / 2 - canvasRect.left;
+            const startY = startRect.top + startRect.height / 2 - canvasRect.top;
+            const endX = endRect.left + endRect.width / 2 - canvasRect.left;
+            const endY = endRect.top + endRect.height / 2 - canvasRect.top;
+
+            // Calculate elegant cubic bezier curve
+            // Make it sweep wide horizontally
+            const cp1X = startX;
+            const cp1Y = startY + (endY - startY) / 2;
+            const cp2X = endX;
+            const cp2Y = startY + (endY - startY) / 2;
+
+            const pathD = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
+
+            // Create Path Elements
+            const pathBase = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            pathBase.setAttribute("d", pathD);
+            pathBase.setAttribute("class", "svg-path");
+
+            const pathPulse = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            pathPulse.setAttribute("d", pathD);
+            pathPulse.setAttribute("class", "svg-pulse");
+            pathPulse.style.animation = "drawPulse 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards";
+
+            // If connecting to final node, make path crimson
+            if (endIndex === episodesData[currentEpisode].nodes.length - 1) {
+                pathPulse.style.stroke = '#7F1D1D';
+                pathPulse.style.filter = 'drop-shadow(0 0 8px #7F1D1D)';
+            }
+
+            svgCanvas.appendChild(pathBase);
+            svgCanvas.appendChild(pathPulse);
+
+            // Light up base path after pulse finishes
+            setTimeout(() => { pathBase.classList.add('active'); }, 1000);
+        }
+
+        // Handle window resize (re-draw lines instantly)
+        window.addEventListener('resize', () => {
+            if (document.querySelectorAll('.story-node-wrapper.animate-in').length === episodesData[currentEpisode].nodes.length) {
+                svgCanvas.innerHTML = '';
+                for (let i = 0; i < episodesData[currentEpisode].nodes.length - 1; i++) {
+                    drawConnectionLine(i, i + 1);
+                    // Force active immediately on resize
+                    setTimeout(() => {
+                        const paths = svgCanvas.querySelectorAll('.svg-path');
+                        paths.forEach(p => p.classList.add('active'));
+                    }, 50);
+                }
+            }
+        });
+
+        // Initialize First Episode
+        setTimeout(() => loadEpisode(0), 1000);
+
+        // --- 3D Gallery (Smoothed) ---
+        const cards = document.querySelectorAll('.gallery-card');
+        cards.forEach(card => {
+            const inner = card.querySelector('.gallery-card-inner');
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                const centerX = rect.width / 2, centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -5;
+                const rotateY = ((x - centerX) / centerX) * 5;
+                inner.style.transform = `translateZ(0) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                inner.style.transform = 'translateZ(0) rotateX(0) rotateY(0)';
+                inner.style.transition = 'transform 0.5s ease-out';
+                setTimeout(() => { inner.style.transition = ''; }, 500);
+            });
+        });
+
+        // --- Scroll Reveals ---
+        const observerOptions = { root: null, rootMargin: '0px', threshold: 0.15 };
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+        document.querySelectorAll('.reveal, .reveal-left').forEach((elem) => observer.observe(elem));
+
+    </script>
+</body>
+
+</html>
