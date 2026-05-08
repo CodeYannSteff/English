@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PROJECT RIPPLE — AR Episode Demo</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --cyan: #00f0ff;
+            --magenta: #ff00e5;
+            --gold: #ffd700;
+            --green: #39ff14;
+        }
+        body {
+            background: #000;
+            color: #e0e0e0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh; width: 100vw;
+            touch-action: none;
+        }
+        canvas { display: block; }
+
+        /* ── BOOT ── */
+        #boot {
+            position: fixed; inset: 0; z-index: 9999; background: #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1s ease, visibility 1s ease;
+        }
+        #boot.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .boot-title {
+            font-family: 'Orbitron', sans-serif; font-size: clamp(1.8rem,5vw,3.5rem); font-weight: 900;
+            background: linear-gradient(135deg, var(--cyan), var(--magenta));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .boot-sub { font-family: 'Space Mono'; font-size: 0.7rem; color: rgba(0,240,255,0.5); margin-top: 1rem; letter-spacing: 4px; text-transform: uppercase; }
+        .boot-bar-wrap { width: 240px; height: 3px; background: rgba(255,255,255,0.05); border-radius: 4px; margin-top: 2rem; overflow: hidden; }
+        .boot-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--magenta)); border-radius: 4px; transition: width 0.3s; }
+
+        /* ── LANDING ── */
+        #landing {
+            position: fixed; inset: 0; z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: radial-gradient(ellipse at center, #0a0a1a 0%, #000 70%);
+            text-align: center; padding: 20px;
+            transition: opacity 0.6s; 
+        }
+        #landing.hidden { opacity: 0; pointer-events: none; }
+        .landing-icon {
+            width: 90px; height: 90px; border-radius: 50%;
+            border: 2px solid rgba(0,240,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 28px;
+            background: rgba(0,240,255,0.03);
+        }
+        .landing-icon svg { width: 40px; height: 40px; }
+        .landing-title { font-family: 'Orbitron'; font-size: clamp(1.2rem,3vw,1.6rem); font-weight: 700; letter-spacing: 3px; margin-bottom: 14px; }
+        .landing-desc { font-size: 0.85rem; color: rgba(255,255,255,0.45); max-width: 400px; line-height: 1.7; margin-bottom: 10px; }
+        .landing-episode {
+            font-family: 'Space Mono'; font-size: 0.6rem; color: var(--gold);
+            letter-spacing: 3px; text-transform: uppercase; margin-bottom: 32px;
+            border: 1px solid rgba(255,215,0,0.2); padding: 6px 18px; border-radius: 20px;
+        }
+        .ar-btn {
+            font-family: 'Orbitron'; font-size: 0.8rem; font-weight: 700; letter-spacing: 3px;
+            text-transform: uppercase; color: #fff; cursor: pointer;
+            background: linear-gradient(135deg, rgba(0,240,255,0.12), rgba(255,0,229,0.08));
+            border: 1px solid rgba(0,240,255,0.25); padding: 16px 44px; border-radius: 50px;
+            transition: all 0.3s;
+        }
+        .ar-btn:hover { border-color: var(--cyan); box-shadow: 0 0 30px rgba(0,240,255,0.15); transform: scale(1.04); }
+        .ar-btn:disabled { opacity: 0.3; pointer-events: none; }
+        .ar-btn.gold { border-color: rgba(255,215,0,0.3); }
+        .ar-btn.gold:hover { border-color: var(--gold); box-shadow: 0 0 30px rgba(255,215,0,0.15); }
+        .fallback-note { font-size: 0.65rem; color: rgba(255,255,255,0.25); margin-top: 16px; }
+
+        /* ── HUD OVERLAY (DOM Overlay for WebXR) ── */
+        #hud {
+            position: fixed; inset: 0; z-index: 50; pointer-events: none;
+            font-family: 'Space Mono', monospace;
+        }
+        #hud.hidden { display: none; }
+
+        .hud-top {
+            position: absolute; top: 0; left: 0; right: 0;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+        }
+        .hud-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+        .hud-label { font-size: 0.55rem; color: rgba(255,255,255,0.4); letter-spacing: 1.5px; }
+
+        /* ── RETICLE INDICATOR ── */
+        #reticle-hint {
+            position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%);
+            font-family: 'Orbitron'; font-size: 0.65rem; letter-spacing: 2px;
+            color: rgba(0,240,255,0.6); text-align: center;
+            animation: reticleFade 2s ease-in-out infinite;
+            text-transform: uppercase;
+        }
+        @keyframes reticleFade { 0%,100%{opacity:0.4}50%{opacity:1} }
+
+        /* ── NARRATIVE PANEL ── */
+        #narrative {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: min(560px, 90vw);
+            background: rgba(0,8,16,0.75);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0,240,255,0.1);
+            border-radius: 16px; padding: 20px 24px;
+            opacity: 0; transform: translateX(-50%) translateY(20px);
+            transition: opacity 0.5s, transform 0.5s cubic-bezier(0.16,1,0.3,1);
+            pointer-events: none;
+        }
+        #narrative.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .narr-phase {
+            font-family: 'Orbitron'; font-size: 0.55rem; font-weight: 700;
+            letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px;
+        }
+        .narr-title { font-family: 'Orbitron'; font-size: 0.85rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; color: #fff; }
+        .narr-body { font-size: 0.82rem; line-height: 1.65; color: rgba(255,255,255,0.75); }
+        .narr-body .cursor { display: inline-block; width: 2px; height: 1em; background: var(--cyan); animation: blink 0.7s infinite; vertical-align: text-bottom; margin-left: 2px; }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+        .narr-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .narr-tag {
+            font-size: 0.5rem; padding: 3px 10px; border-radius: 20px;
+            background: rgba(0,240,255,0.06); border: 1px solid rgba(0,240,255,0.12);
+            color: rgba(0,240,255,0.6); letter-spacing: 1px;
+        }
+
+        /* ── STEP INDICATOR ── */
+        #step-bar {
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 12px; align-items: center;
+        }
+        .step-pip {
+            width: 28px; height: 3px; border-radius: 2px;
+            background: rgba(255,255,255,0.1);
+            transition: all 0.5s;
+        }
+        .step-pip.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+        .step-pip.done { background: rgba(0,240,255,0.3); }
+        .step-pip.target { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+
+        /* ── TAP BUTTON ── */
+        #tap-btn {
+            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            pointer-events: auto;
+            font-family: 'Orbitron'; font-size: 0.65rem; font-weight: 700;
+            letter-spacing: 2px; text-transform: uppercase;
+            color: #fff; background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.3);
+            padding: 12px 32px; border-radius: 40px; cursor: pointer;
+            transition: all 0.3s;
+        }
+        #tap-btn:hover { background: rgba(0,240,255,0.2); box-shadow: 0 0 20px rgba(0,240,255,0.15); }
+        #tap-btn.hidden { opacity: 0; pointer-events: none; }
+        #tap-btn.gold { border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.1); }
+        #tap-btn.gold:hover { box-shadow: 0 0 20px rgba(255,215,0,0.2); }
+
+        /* ── FLASH ── */
+        .flash { position: fixed; inset: 0; z-index: 200; pointer-events: none; opacity: 0; animation: flashAnim 0.5s ease-out; }
+        @keyframes flashAnim { 0%{opacity:1}100%{opacity:0} }
+
+        /* ── SCAN LINE ── */
+        #scan-line {
+            position: fixed; left: 0; right: 0; height: 2px; z-index: 60;
+            background: linear-gradient(90deg, transparent 5%, var(--cyan) 30%, rgba(0,240,255,0.8) 50%, var(--cyan) 70%, transparent 95%);
+            box-shadow: 0 0 15px var(--cyan), 0 0 40px rgba(0,240,255,0.2);
+            opacity: 0; pointer-events: none;
+        }
+        #scan-line.active { animation: scanMove 2s ease-in-out; }
+        @keyframes scanMove { 0%{top:0;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0} }
+
+        /* ── COMPLETION SCREEN ── */
+        #complete {
+            position: fixed; inset: 0; z-index: 300;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.92); text-align: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.8s;
+        }
+        #complete.visible { opacity: 1; pointer-events: auto; }
+        .complete-ring {
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 2px solid var(--gold);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 24px;
+            box-shadow: 0 0 30px rgba(255,215,0,0.15);
+            animation: completePulse 2s ease-in-out infinite;
+        }
+        @keyframes completePulse { 0%,100%{box-shadow:0 0 30px rgba(255,215,0,0.15)}50%{box-shadow:0 0 50px rgba(255,215,0,0.3)} }
+        .complete-title {
+            font-family: 'Orbitron'; font-size: clamp(1.2rem,3vw,1.8rem); font-weight: 900;
+            background: linear-gradient(135deg, var(--gold), #ff8c00);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+        .complete-sub { font-size: 0.85rem; color: rgba(255,255,255,0.4); max-width: 380px; line-height: 1.6; margin-bottom: 28px; }
+
+        @keyframes phaseTextIn {
+            0% { opacity: 0; transform: translateY(20px) scale(0.9); filter: blur(8px); }
+            30% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+            80% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Boot Screen -->
+<div id="boot">
+    <div class="boot-title">RIPPLE AR</div>
+    <div class="boot-sub">Augmented Reality Engine</div>
+    <div class="boot-bar-wrap"><div class="boot-bar" id="boot-bar"></div></div>
+</div>
+
+<!-- Landing Screen -->
+<div id="landing" class="hidden">
+    <div class="landing-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+        </svg>
+    </div>
+    <div class="landing-title">SURFACE AR MODE</div>
+    <div class="landing-desc">Point your device at a flat surface. 3D objects from the Ripple episode will materialize on real-world surfaces around you.</div>
+    <div class="landing-episode">EPISODE 01 — THE UMBRELLA EFFECT</div>
+    <button class="ar-btn" id="btn-ar" onclick="startAR()">ENTER AR</button>
+    <button class="ar-btn gold" id="btn-fallback" onclick="startFallback()" style="margin-top:12px; display:none;">SIMULATION MODE</button>
+    <div class="fallback-note" id="compat-note"></div>
+</div>
+
+<!-- HUD Overlay -->
+<div id="hud" class="hidden">
+    <div class="hud-top">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div class="hud-dot"></div>
+            <span class="hud-label" id="hud-status">AR ACTIVE</span>
+        </div>
+        <span class="hud-label" id="hud-episode">EP.01 — UMBRELLA EFFECT</span>
+    </div>
+    <div id="step-bar"></div>
+    <div id="reticle-hint">Move device to find surface</div>
+    <button id="tap-btn" class="hidden" onclick="beginEpisode()">BEGIN EPISODE</button>
+    <div id="narrative"></div>
+    <div id="phase-flash"></div>
+</div>
+
+<!-- Scan Line -->
+<div id="scan-line"></div>
+
+<!-- Completion -->
+<div id="complete">
+    <div class="complete-ring">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="complete-title">ORCHESTRATION COMPLETE</div>
+    <div class="complete-sub">The baker adopts the dog. Every invisible domino fell exactly as planned. No one suspects a thing.</div>
+    <button class="ar-btn gold" onclick="location.reload()">REPLAY EPISODE</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ═══════════════════════════════════════
+//  EPISODE DATA
+// ═══════════════════════════════════════
+const EPISODE = {
+    title: "The Umbrella Effect",
+    steps: [
+        {
+            phase: "PHASE I", phaseColor: "#00f0ff",
+            title: "The Catalyst",
+            narrative: "An umbrella materializes on the surface — seemingly innocent. The Mastermind has purchased every single umbrella from the corner shop. In exactly 4 minutes, an unforecasted storm will hit. The first domino is set.",
+            tags: ["CATALYST", "PRECIPITATION", "T-MINUS 4:00"],
+            buildFn: buildUmbrella
+        },
+        {
+            phase: "PHASE II", phaseColor: "#ff00e5",
+            title: "Displacement",
+            narrative: "Rain hammers down. A soaked pedestrian — our unwitting extra — scrambles for shelter. Without an umbrella, they break from their usual route and stumble into the bakery's loading zone. The blockade forms.",
+            tags: ["DISPLACEMENT", "ROUTE DEVIATION", "BLOCKING"],
+            buildFn: buildRainCloud
+        },
+        {
+            phase: "PHASE III", phaseColor: "#ff6b35",
+            title: "The Bottleneck",
+            narrative: "A delivery truck carrying 200kg of flour grinds to a halt. The loading zone is blocked. The bakery schedule collapses. Inside, a baker's frustration boils toward a critical threshold.",
+            tags: ["BOTTLENECK", "SUPPLY CHAIN", "AGITATION: 92%"],
+            buildFn: buildDeliveryBox
+        },
+        {
+            phase: "TARGET EVENT", phaseColor: "#ffd700",
+            title: "The Final Act",
+            narrative: "The furious baker storms into the alley for air — and finds a wet, shivering stray dog, planted there by the Mastermind. The baker's anger dissolves. He kneels. He adopts the dog. Orchestration complete.",
+            tags: ["TARGET HIT", "EMOTIONAL OVERRIDE", "MISSION COMPLETE"],
+            buildFn: buildDog
+        }
+    ]
+};
+
+let renderer, scene, camera, xrSession = null;
+let hitTestSource = null, hitTestSourceRequested = false;
+let reticle, currentStep = -1, placedObjects = [];
+let isFallback = false, fallbackVideo = null;
+let clock = new THREE.Clock();
+
+// ═══════════════════════════════════════
+//  BOOT SEQUENCE
+// ═══════════════════════════════════════
+(function boot() {
+    const bar = document.getElementById('boot-bar');
+    let p = 0;
+    const iv = setInterval(() => {
+        p += Math.random() * 18 + 5;
+        if (p >= 100) {
+            p = 100; bar.style.width = '100%';
+            clearInterval(iv);
+            setTimeout(() => {
+                document.getElementById('boot').classList.add('hidden');
+                document.getElementById('landing').classList.remove('hidden');
+                checkARSupport();
+            }, 500);
+        } else { bar.style.width = p + '%'; }
+    }, 180);
+})();
+
+// ═══════════════════════════════════════
+//  AR SUPPORT CHECK
+// ═══════════════════════════════════════
+async function checkARSupport() {
+    const note = document.getElementById('compat-note');
+    const btnAR = document.getElementById('btn-ar');
+    const btnFB = document.getElementById('btn-fallback');
+
+    if (navigator.xr) {
+        const supported = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
+        if (supported) {
+            note.textContent = 'WebXR AR supported — full surface tracking enabled';
+            return;
+        }
+    }
+    btnAR.style.display = 'none';
+    btnFB.style.display = '';
+    note.textContent = 'WebXR AR not available on this device — launching camera simulation mode';
+}
+
+// ═══════════════════════════════════════
+//  INIT THREE.JS SCENE
+// ═══════════════════════════════════════
+function initScene(xr = true) {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 40);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    if (xr) {
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+    } else {
+        renderer.domElement.style.position = 'fixed';
+        renderer.domElement.style.top = '0';
+        renderer.domElement.style.left = '0';
+        renderer.domElement.style.zIndex = '1';
+        document.body.appendChild(renderer.domElement);
+    }
+
+    // Lighting
+    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambient);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+    dir.position.set(2, 5, 2);
+    dir.castShadow = true;
+    scene.add(dir);
+    const pointLight = new THREE.PointLight(0x00f0ff, 0.6, 10);
+    pointLight.position.set(0, 2, 0);
+    scene.add(pointLight);
+
+    // Reticle (surface indicator)
+    const ringGeo = new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+    reticle = new THREE.Mesh(ringGeo, ringMat);
+    reticle.matrixAutoUpdate = false;
+    reticle.visible = false;
+    scene.add(reticle);
+
+    // Glow ring around reticle
+    const glowGeo = new THREE.RingGeometry(0.1, 0.14, 32).rotateX(-Math.PI / 2);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    reticle.add(glow);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+// ═══════════════════════════════════════
+//  START WEBXR AR
+// ═══════════════════════════════════════
+window.startAR = async function() {
+    document.getElementById('landing').classList.add('hidden');
+    initScene(true);
+    buildStepPips();
+
+    const sessionInit = {
+        requiredFeatures: ['hit-test'],
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: { root: document.getElementById('hud') }
+    };
+
+    try {
+        xrSession = await navigator.xr.requestSession('immersive-ar', sessionInit);
+        renderer.xr.setReferenceSpaceType('local');
+        await renderer.xr.setSession(xrSession);
+
+        document.getElementById('hud').classList.remove('hidden');
+
+        xrSession.addEventListener('end', () => {
+            document.getElementById('hud').classList.add('hidden');
+        });
+
+        renderer.setAnimationLoop(renderXR);
+
+        setTimeout(() => {
+            document.getElementById('reticle-hint').textContent = 'Surface detected — tap to begin episode';
+            document.getElementById('tap-btn').classList.remove('hidden');
+            currentStep = -1;
+        }, 2500);
+    } catch(e) {
+        console.error('AR failed:', e);
+        startFallback();
+    }
+};
+
+// ═══════════════════════════════════════
+//  WEBXR RENDER LOOP
+// ═══════════════════════════════════════
+function renderXR(timestamp, frame) {
+    if (!frame) return;
+    const refSpace = renderer.xr.getReferenceSpace();
+    const session = renderer.xr.getSession();
+
+    if (!hitTestSourceRequested) {
+        session.requestReferenceSpace('viewer').then(viewerSpace => {
+            session.requestHitTestSource({ space: viewerSpace }).then(src => {
+                hitTestSource = src;
+            });
+        });
+        hitTestSourceRequested = true;
+    }
+
+    if (hitTestSource) {
+        const results = frame.getHitTestResults(hitTestSource);
+        if (results.length > 0) {
+            const hit = results[0];
+            const pose = hit.getPose(refSpace);
+            reticle.visible = true;
+            reticle.matrix.fromArray(pose.transform.matrix);
+        } else {
+            reticle.visible = false;
+        }
+    }
+
+    animateObjects();
+    renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════
+//  FALLBACK MODE (camera + simulated surface)
+// ═══════════════════════════════════════
+window.startFallback = async function() {
+    isFallback = true;
+    document.getElementById('landing').classList.add('hidden');
+
+    // Get camera
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true; video.playsInline = true; video.muted = true;
+        video.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;transform:scaleX(-1);filter:brightness(0.85)';
+        document.body.prepend(video);
+        fallbackVideo = video;
+    } catch(e) {
+        const bg = document.createElement('div');
+        bg.style.cssText = 'position:fixed;inset:0;z-index:0;background:linear-gradient(135deg,#0a0a1a,#0d1117,#0a0a1a)';
+        document.body.prepend(bg);
+    }
+
+    initScene(false);
+    buildStepPips();
+
+    // Position camera for fallback view
+    camera.position.set(0, 1.5, 2.5);
+    camera.lookAt(0, 0, 0);
+
+    // Ground plane (invisible, just for context)
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2),
+        new THREE.ShadowMaterial({ opacity: 0.15 })
+    );
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Show reticle at center
+    reticle.visible = true;
+    reticle.position.set(0, 0.01, 0);
+    reticle.rotation.set(0, 0, 0);
+    reticle.matrixAutoUpdate = true;
+
+    // Subtle reticle animation
+    function animateReticle() {
+        if (!reticle.visible) { requestAnimationFrame(animateReticle); return; }
+        reticle.rotation.y += 0.01;
+        requestAnimationFrame(animateReticle);
+    }
+    animateReticle();
+
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('hud-status').textContent = 'SIMULATION MODE';
+
+    setTimeout(() => {
+        document.getElementById('reticle-hint').textContent = 'Surface simulated — tap to begin episode';
+        document.getElementById('tap-btn').classList.remove('hidden');
+        currentStep = -1;
+    }, 1500);
+
+    renderer.setAnimationLoop(() => {
+        animateObjects();
+        renderer.render(scene, camera);
+    });
+};
+
+// ═══════════════════════════════════════
+//  AUTO-PLAY FULL EPISODE
+// ═══════════════════════════════════════
+let autoPlaying = false;
+const PHASE_DELAY = 7500; // ms between each phase
+
+window.beginEpisode = function() {
+    if (autoPlaying) return;
+    autoPlaying = true;
+
+    const btn = document.getElementById('tap-btn');
+    btn.classList.add('hidden');
+    document.getElementById('reticle-hint').style.display = 'none';
+    reticle.visible = false;
+
+    // Start auto-orbit in fallback mode
+    if (isFallback) startAutoOrbit();
+
+    // Play each step with delay
+    EPISODE.steps.forEach((step, i) => {
+        setTimeout(() => playStep(i), i * PHASE_DELAY + 500);
+    });
+
+    // Completion after all steps
+    setTimeout(() => {
+        showCompletion();
+    }, EPISODE.steps.length * PHASE_DELAY + 2000);
+};
+
+function playStep(index) {
+    currentStep = index;
+    const step = EPISODE.steps[index];
+
+    // Big phase flash
+    showPhaseFlash(step);
+
+    // Flash + scan
+    triggerFlash(step.phaseColor);
+    triggerScan();
+
+    // Update pips
+    updatePips();
+
+    // Place 3D object after a brief dramatic pause
+    setTimeout(() => {
+        const obj = step.buildFn();
+        placeObject(obj);
+
+        // Draw connection line to previous object
+        if (index > 0 && placedObjects.length >= 2) {
+            drawConnectionBeam(placedObjects[placedObjects.length - 2].mesh, obj, step.phaseColor);
+        }
+    }, 800);
+
+    // Show narrative
+    setTimeout(() => showNarrative(step), 1200);
+}
+
+// ═══════════════════════════════════════
+//  AUTO-ORBIT CAMERA (fallback mode)
+// ═══════════════════════════════════════
+let orbitAngle = 0;
+let orbitTarget = new THREE.Vector3(0, 0.15, 0);
+let orbitRadius = 2.2;
+let orbitHeight = 1.3;
+let orbitActive = false;
+
+function startAutoOrbit() {
+    orbitActive = true;
+}
+
+function updateOrbit() {
+    if (!orbitActive || !isFallback) return;
+    orbitAngle += 0.003;
+    // Slowly zoom in
+    orbitRadius = Math.max(1.4, orbitRadius - 0.0004);
+    // Pan target toward latest object
+    if (placedObjects.length > 0) {
+        const latest = placedObjects[placedObjects.length - 1].mesh.position;
+        orbitTarget.lerp(new THREE.Vector3(latest.x * 0.5, 0.15, latest.z * 0.5), 0.01);
+    }
+    camera.position.set(
+        orbitTarget.x + Math.cos(orbitAngle) * orbitRadius,
+        orbitHeight,
+        orbitTarget.z + Math.sin(orbitAngle) * orbitRadius
+    );
+    camera.lookAt(orbitTarget);
+}
+
+// ═══════════════════════════════════════
+//  CONNECTION BEAMS BETWEEN OBJECTS
+// ═══════════════════════════════════════
+const connectionBeams = [];
+
+function drawConnectionBeam(fromObj, toObj, color) {
+    const from = fromObj.position.clone();
+    from.y += 0.15;
+    const to = toObj.position.clone();
+    to.y += 0.15;
+
+    const mid = from.clone().lerp(to, 0.5);
+    mid.y += 0.12;
+
+    const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+    const points = curve.getPoints(40);
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+
+    const mat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(color),
+        transparent: true,
+        opacity: 0
+    });
+    const line = new THREE.Line(geo, mat);
+    scene.add(line);
+    connectionBeams.push({ line, targetOpacity: 0.5, currentOpacity: 0 });
+
+    // Animated particles along the beam
+    spawnBeamParticles(curve, color);
+}
+
+function spawnBeamParticles(curve, color) {
+    const count = 15;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const offsets = [];
+    for (let i = 0; i < count; i++) {
+        const t = i / count;
+        const p = curve.getPoint(t);
+        positions[i * 3] = p.x;
+        positions[i * 3 + 1] = p.y;
+        positions[i * 3 + 2] = p.z;
+        offsets.push(t);
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+        color: new THREE.Color(color), size: 0.015,
+        transparent: true, opacity: 0.6
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.userData.beamCurve = curve;
+    pts.userData.beamOffsets = offsets;
+    pts.userData.beamParticle = true;
+    scene.add(pts);
+    connectionBeams.push({ particle: pts });
+}
+
+// ═══════════════════════════════════════
+//  PHASE FLASH OVERLAY
+// ═══════════════════════════════════════
+function showPhaseFlash(step) {
+    const el = document.getElementById('phase-flash');
+    el.innerHTML = `<div style="
+        position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;pointer-events:none;
+        background:radial-gradient(ellipse at center, ${step.phaseColor}15 0%, transparent 70%);
+        animation: flashAnim 1.8s ease-out forwards;
+    ">
+        <div style="font-family:'Orbitron';font-size:clamp(0.6rem,2vw,0.8rem);font-weight:700;
+            letter-spacing:4px;color:${step.phaseColor};text-transform:uppercase;
+            opacity:0;animation:phaseTextIn 1.5s ease-out 0.2s forwards;">
+            ${step.phase}
+        </div>
+        <div style="font-family:'Orbitron';font-size:clamp(1.2rem,4vw,2rem);font-weight:900;
+            color:#fff;margin-top:8px;letter-spacing:2px;
+            opacity:0;animation:phaseTextIn 1.5s ease-out 0.4s forwards;">
+            ${step.title}
+        </div>
+    </div>`;
+    setTimeout(() => { el.innerHTML = ''; }, 2200);
+}
+
+// ═══════════════════════════════════════
+//  PLACE OBJECT ON SURFACE
+// ═══════════════════════════════════════
+function placeObject(obj) {
+    if (isFallback) {
+        // Spread objects in a line
+        const spacing = 0.7;
+        const totalWidth = (EPISODE.steps.length - 1) * spacing;
+        const x = -totalWidth / 2 + currentStep * spacing;
+        obj.position.set(x, 0.01, 0);
+    } else {
+        // Use reticle position in WebXR
+        const pos = new THREE.Vector3();
+        const quat = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        reticle.matrix.decompose(pos, quat, scale);
+        obj.position.copy(pos);
+        obj.position.y += 0.01;
+    }
+
+    // Spawn animation
+    obj.scale.set(0, 0, 0);
+    scene.add(obj);
+    placedObjects.push({ mesh: obj, targetScale: 1, time: 0, bobSpeed: 1 + Math.random() * 0.5 });
+
+    // Particle burst at spawn
+    spawnParticleBurst(obj.position.clone());
+}
+
+// ═══════════════════════════════════════
+//  3D OBJECT BUILDERS
+// ═══════════════════════════════════════
+function buildUmbrella() {
+    const group = new THREE.Group();
+
+    // Canopy (half sphere)
+    const canopyGeo = new THREE.SphereGeometry(0.18, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    const canopyMat = new THREE.MeshStandardMaterial({
+        color: 0x00f0ff, metalness: 0.3, roughness: 0.5,
+        emissive: 0x00f0ff, emissiveIntensity: 0.15,
+        transparent: true, opacity: 0.9
+    });
+    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+    canopy.position.y = 0.3;
+    group.add(canopy);
+
+    // Ribs
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const ribGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.19, 4);
+        const ribMat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
+        const rib = new THREE.Mesh(ribGeo, ribMat);
+        rib.position.set(Math.cos(angle) * 0.09, 0.34, Math.sin(angle) * 0.09);
+        rib.rotation.z = Math.cos(angle) * 0.6;
+        rib.rotation.x = Math.sin(angle) * 0.6;
+        group.add(rib);
+    }
+
+    // Handle
+    const handleGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.32, 8);
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.position.y = 0.14;
+    group.add(handle);
+
+    // Hook
+    const hookGeo = new THREE.TorusGeometry(0.025, 0.006, 8, 16, Math.PI);
+    const hook = new THREE.Mesh(hookGeo, handleMat);
+    hook.position.set(0.025, -0.005, 0);
+    hook.rotation.z = Math.PI / 2;
+    group.add(hook);
+
+    // Glow ring at base
+    addGlowRing(group, 0x00f0ff);
+
+    return group;
+}
+
+function buildRainCloud() {
+    const group = new THREE.Group();
+
+    // Cloud body (merged spheres)
+    const cloudMat = new THREE.MeshStandardMaterial({
+        color: 0x8844aa, metalness: 0.1, roughness: 0.8,
+        emissive: 0xff00e5, emissiveIntensity: 0.1,
+        transparent: true, opacity: 0.85
+    });
+
+    const positions = [
+        [0, 0.28, 0, 0.1], [-0.08, 0.3, 0.03, 0.08], [0.09, 0.29, -0.02, 0.07],
+        [-0.04, 0.32, -0.04, 0.06], [0.05, 0.31, 0.04, 0.065]
+    ];
+    positions.forEach(([x, y, z, r]) => {
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), cloudMat);
+        sphere.position.set(x, y, z);
+        group.add(sphere);
+    });
+
+    // Rain drops
+    const dropMat = new THREE.MeshBasicMaterial({ color: 0xff00e5, transparent: true, opacity: 0.6 });
+    for (let i = 0; i < 12; i++) {
+        const drop = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, 0.04, 4), dropMat);
+        drop.position.set((Math.random() - 0.5) * 0.16, 0.15 + Math.random() * 0.1, (Math.random() - 0.5) * 0.1);
+        drop.userData.rainDrop = true;
+        drop.userData.rainSpeed = 0.002 + Math.random() * 0.003;
+        drop.userData.rainStart = drop.position.y;
+        group.add(drop);
+    }
+
+    // Person silhouette (simple cylinder + sphere)
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcc44aa, emissive: 0xff00e5, emissiveIntensity: 0.05 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.18, 8), bodyMat);
+    body.position.set(0, 0.09, 0);
+    group.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), bodyMat);
+    head.position.set(0, 0.21, 0);
+    group.add(head);
+
+    addGlowRing(group, 0xff00e5);
+    return group;
+}
+
+function buildDeliveryBox() {
+    const group = new THREE.Group();
+
+    // Truck body
+    const boxMat = new THREE.MeshStandardMaterial({
+        color: 0xff6b35, metalness: 0.2, roughness: 0.6,
+        emissive: 0xff6b35, emissiveIntensity: 0.08
+    });
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.12), boxMat);
+    cabin.position.set(-0.1, 0.06, 0);
+    group.add(cabin);
+
+    const cargo = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.14), boxMat);
+    cargo.position.set(0.05, 0.07, 0);
+    group.add(cargo);
+
+    // Wheels
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.7, roughness: 0.3 });
+    [[-0.12, 0, 0.07], [-0.12, 0, -0.07], [0.08, 0, 0.07], [0.08, 0, -0.07]].forEach(([x, y, z]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 12), wheelMat);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(x, 0.025, z);
+        group.add(wheel);
+    });
+
+    // "FLOUR" text indicator — floating box
+    const flourBag = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.04, 0.04),
+        new THREE.MeshStandardMaterial({ color: 0xffeedd })
+    );
+    flourBag.position.set(0.05, 0.18, 0);
+    group.add(flourBag);
+
+    // Warning sign (red X)
+    const warnGeo = new THREE.PlaneGeometry(0.08, 0.08);
+    const warnCanvas = document.createElement('canvas');
+    warnCanvas.width = 64; warnCanvas.height = 64;
+    const wCtx = warnCanvas.getContext('2d');
+    wCtx.fillStyle = '#ff6b35';
+    wCtx.fillRect(0, 0, 64, 64);
+    wCtx.strokeStyle = '#fff';
+    wCtx.lineWidth = 6;
+    wCtx.beginPath(); wCtx.moveTo(16, 16); wCtx.lineTo(48, 48); wCtx.stroke();
+    wCtx.beginPath(); wCtx.moveTo(48, 16); wCtx.lineTo(16, 48); wCtx.stroke();
+    const warnTex = new THREE.CanvasTexture(warnCanvas);
+    const warnMesh = new THREE.Mesh(warnGeo, new THREE.MeshBasicMaterial({ map: warnTex, transparent: true }));
+    warnMesh.position.set(0.05, 0.28, 0);
+    warnMesh.userData.billboard = true;
+    group.add(warnMesh);
+
+    addGlowRing(group, 0xff6b35);
+    return group;
+}
+
+function buildDog() {
+    const group = new THREE.Group();
+
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0xd4a373, metalness: 0.1, roughness: 0.7,
+        emissive: 0xffd700, emissiveIntensity: 0.08
+    });
+
+    // Body
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.12, 8, 12), mat);
+    body.rotation.z = Math.PI / 2;
+    body.position.set(0, 0.08, 0);
+    group.add(body);
+
+    // Head
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), mat);
+    head.position.set(0.1, 0.12, 0);
+    group.add(head);
+
+    // Snout
+    const snout = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), mat);
+    snout.position.set(0.14, 0.11, 0);
+    group.add(snout);
+
+    // Nose
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 6), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    nose.position.set(0.158, 0.115, 0);
+    group.add(nose);
+
+    // Eyes
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffd700, emissiveIntensity: 0.2 });
+    [-0.015, 0.015].forEach(z => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 6), eyeMat);
+        eye.position.set(0.13, 0.14, z);
+        group.add(eye);
+    });
+
+    // Ears
+    const earMat = new THREE.MeshStandardMaterial({ color: 0xb5835a });
+    [-0.03, 0.03].forEach(z => {
+        const ear = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 6), earMat);
+        ear.scale.set(0.5, 1, 0.8);
+        ear.position.set(0.08, 0.16, z);
+        group.add(ear);
+    });
+
+    // Legs
+    const legMat = new THREE.MeshStandardMaterial({ color: 0xc49a6c });
+    [[-0.04, 0, 0.035], [-0.04, 0, -0.035], [0.04, 0, 0.035], [0.04, 0, -0.035]].forEach(([x, y, z]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.01, 0.06, 6), legMat);
+        leg.position.set(x, 0.03, z);
+        group.add(leg);
+    });
+
+    // Tail (wagging!)
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.004, 0.07, 6), mat);
+    tail.position.set(-0.08, 0.12, 0);
+    tail.rotation.z = -0.6;
+    tail.userData.wagTail = true;
+    group.add(tail);
+
+    // Golden glow ring
+    addGlowRing(group, 0xffd700, 0.22);
+
+    // Heart particle above dog
+    const heartGeo = new THREE.ShapeGeometry(createHeartShape(0.025));
+    const heartMat = new THREE.MeshBasicMaterial({ color: 0xff4466, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    const heart = new THREE.Mesh(heartGeo, heartMat);
+    heart.position.set(0.1, 0.25, 0);
+    heart.userData.floatHeart = true;
+    heart.userData.billboard = true;
+    group.add(heart);
+
+    return group;
+}
+
+function createHeartShape(s) {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, s * 0.6);
+    shape.bezierCurveTo(0, s, -s, s, -s, s * 0.4);
+    shape.bezierCurveTo(-s, 0, 0, 0, 0, -s * 0.4);
+    shape.bezierCurveTo(0, 0, s, 0, s, s * 0.4);
+    shape.bezierCurveTo(s, s, 0, s, 0, s * 0.6);
+    return shape;
+}
+
+function addGlowRing(group, color, radius = 0.2) {
+    const ringGeo = new THREE.RingGeometry(radius - 0.01, radius, 48).rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.y = 0.005;
+    ring.userData.pulseRing = true;
+    group.add(ring);
+
+    // Outer pulse
+    const outerGeo = new THREE.RingGeometry(radius, radius + 0.02, 48).rotateX(-Math.PI / 2);
+    const outerMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.08, side: THREE.DoubleSide });
+    const outer = new THREE.Mesh(outerGeo, outerMat);
+    outer.position.y = 0.004;
+    outer.userData.pulseOuter = true;
+    group.add(outer);
+}
+
+// ═══════════════════════════════════════
+//  PARTICLE BURST
+// ═══════════════════════════════════════
+const particleSystems = [];
+
+function spawnParticleBurst(pos) {
+    const count = 40;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const velocities = [];
+
+    for (let i = 0; i < count; i++) {
+        positions[i * 3] = pos.x;
+        positions[i * 3 + 1] = pos.y + 0.05;
+        positions[i * 3 + 2] = pos.z;
+        velocities.push(new THREE.Vector3(
+            (Math.random() - 0.5) * 0.04,
+            Math.random() * 0.03 + 0.01,
+            (Math.random() - 0.5) * 0.04
+        ));
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = new THREE.PointsMaterial({
+        color: EPISODE.steps[currentStep]?.phaseColor
+            ? new THREE.Color(EPISODE.steps[currentStep].phaseColor)
+            : new THREE.Color(0x00f0ff),
+        size: 0.012,
+        transparent: true, opacity: 1
+    });
+
+    const points = new THREE.Points(geo, mat);
+    scene.add(points);
+    particleSystems.push({ points, velocities, life: 1.0 });
+}
+
+// ═══════════════════════════════════════
+//  ANIMATION
+// ═══════════════════════════════════════
+function animateObjects() {
+    const t = clock.getElapsedTime();
+
+    // Auto-orbit
+    updateOrbit();
+
+    // Animate connection beams
+    connectionBeams.forEach(cb => {
+        if (cb.line) {
+            cb.currentOpacity = THREE.MathUtils.lerp(cb.currentOpacity, cb.targetOpacity, 0.03);
+            cb.line.material.opacity = cb.currentOpacity * (0.3 + Math.sin(t * 2) * 0.15);
+        }
+        if (cb.particle) {
+            const pts = cb.particle;
+            const posArr = pts.geometry.attributes.position.array;
+            for (let i = 0; i < pts.userData.beamOffsets.length; i++) {
+                pts.userData.beamOffsets[i] = (pts.userData.beamOffsets[i] + 0.003) % 1;
+                const p = pts.userData.beamCurve.getPoint(pts.userData.beamOffsets[i]);
+                posArr[i * 3] = p.x;
+                posArr[i * 3 + 1] = p.y;
+                posArr[i * 3 + 2] = p.z;
+            }
+            pts.geometry.attributes.position.needsUpdate = true;
+            pts.material.opacity = 0.3 + Math.sin(t * 3) * 0.2;
+        }
+    });
+
+    placedObjects.forEach(obj => {
+        // Scale in
+        if (obj.mesh.scale.x < obj.targetScale) {
+            const s = THREE.MathUtils.lerp(obj.mesh.scale.x, obj.targetScale, 0.08);
+            obj.mesh.scale.set(s, s, s);
+        }
+
+        // Gentle bob
+        obj.mesh.position.y = 0.01 + Math.sin(t * obj.bobSpeed) * 0.008;
+
+        // Slow rotation
+        obj.mesh.rotation.y += 0.003;
+
+        // Animate sub-elements
+        obj.mesh.traverse(child => {
+            // Rain drops
+            if (child.userData.rainDrop) {
+                child.position.y -= child.userData.rainSpeed;
+                if (child.position.y < 0.05) child.position.y = child.userData.rainStart;
+            }
+            // Tail wag
+            if (child.userData.wagTail) {
+                child.rotation.x = Math.sin(t * 8) * 0.5;
+            }
+            // Floating heart
+            if (child.userData.floatHeart) {
+                child.position.y = 0.25 + Math.sin(t * 2) * 0.02;
+                child.material.opacity = 0.5 + Math.sin(t * 3) * 0.3;
+            }
+            // Billboard
+            if (child.userData.billboard && camera) {
+                child.lookAt(camera.position);
+            }
+            // Pulse ring
+            if (child.userData.pulseRing) {
+                child.material.opacity = 0.15 + Math.sin(t * 2) * 0.1;
+            }
+            if (child.userData.pulseOuter) {
+                const sc = 1 + Math.sin(t * 1.5) * 0.1;
+                child.scale.set(sc, sc, sc);
+            }
+        });
+    });
+
+    // Particle systems
+    for (let i = particleSystems.length - 1; i >= 0; i--) {
+        const ps = particleSystems[i];
+        ps.life -= 0.015;
+        ps.points.material.opacity = Math.max(0, ps.life);
+        const posArr = ps.points.geometry.attributes.position.array;
+        for (let j = 0; j < ps.velocities.length; j++) {
+            posArr[j * 3] += ps.velocities[j].x;
+            posArr[j * 3 + 1] += ps.velocities[j].y;
+            posArr[j * 3 + 2] += ps.velocities[j].z;
+            ps.velocities[j].y -= 0.0004;
+        }
+        ps.points.geometry.attributes.position.needsUpdate = true;
+        if (ps.life <= 0) {
+            scene.remove(ps.points);
+            ps.points.geometry.dispose();
+            ps.points.material.dispose();
+            particleSystems.splice(i, 1);
+        }
+    }
+
+    // Reticle rotation (fallback)
+    if (isFallback && reticle && reticle.visible) {
+        reticle.material.opacity = 0.4 + Math.sin(t * 3) * 0.3;
+    }
+}
+
+// ═══════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════
+function buildStepPips() {
+    const bar = document.getElementById('step-bar');
+    bar.innerHTML = '';
+    EPISODE.steps.forEach((s, i) => {
+        const pip = document.createElement('div');
+        pip.className = 'step-pip';
+        pip.id = `pip-${i}`;
+        bar.appendChild(pip);
+    });
+}
+
+function updatePips() {
+    EPISODE.steps.forEach((s, i) => {
+        const pip = document.getElementById(`pip-${i}`);
+        if (i < currentStep) pip.className = 'step-pip done';
+        else if (i === currentStep) pip.className = 'step-pip ' + (s.phase === 'TARGET EVENT' ? 'target' : 'active');
+        else pip.className = 'step-pip';
+    });
+}
+
+function showNarrative(step) {
+    const panel = document.getElementById('narrative');
+    panel.classList.remove('visible');
+
+    setTimeout(() => {
+        panel.innerHTML = `
+            <div class="narr-phase" style="color:${step.phaseColor}">${step.phase}</div>
+            <div class="narr-title">${step.title}</div>
+            <div class="narr-body" id="narr-typed"></div>
+            <div class="narr-tags">${step.tags.map(t => `<span class="narr-tag">${t}</span>`).join('')}</div>
+        `;
+        panel.classList.add('visible');
+
+        // Typewriter
+        const bodyEl = document.getElementById('narr-typed');
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        let idx = 0;
+        function type() {
+            if (idx < step.narrative.length) {
+                bodyEl.textContent = step.narrative.substring(0, idx + 1);
+                bodyEl.appendChild(cursor);
+                idx++;
+                const ch = step.narrative[idx - 1];
+                const delay = ch === '.' ? 70 : ch === ',' ? 35 : ch === '—' ? 50 : 16;
+                setTimeout(type, delay);
+            }
+        }
+        type();
+    }, 300);
+}
+
+function triggerFlash(color) {
+    const f = document.createElement('div');
+    f.className = 'flash';
+    f.style.background = color ? `${color}15` : 'rgba(0,240,255,0.06)';
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 500);
+}
+
+function triggerScan() {
+    const line = document.getElementById('scan-line');
+    line.classList.remove('active');
+    void line.offsetWidth;
+    line.classList.add('active');
+}
+
+function showCompletion() {
+    document.getElementById('tap-btn').classList.add('hidden');
+    document.getElementById('narrative').classList.remove('visible');
+
+    setTimeout(() => {
+        document.getElementById('complete').classList.add('visible');
+    }, 800);
+}
+</script>
+</body>
+</html>
