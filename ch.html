@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROJECT: RIPPLE | The Subject's Path</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400;1,600&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        obsidian: '#050505',
+                        charcoal: '#121212',
+                        ivory: '#F9FAFB',
+                        gold: '#D4AF37',
+                        goldMuted: '#9CA3AF',
+                        crimson: '#7F1D1D',
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Inter"', 'sans-serif'],
+                        mono: ['"Space Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --cursor-x: 50vw;
+            --cursor-y: 50vh;
+        }
+
+        body,
+        html {
+            background-color: #050505;
+            color: #E5E7EB;
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            cursor: none;
+            scroll-behavior: smooth;
+        }
+
+        /* --- Minimalist Master's Cursor --- */
+        #custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(calc(var(--cursor-x) - 20px), calc(var(--cursor-y) - 20px));
+            transition: width 0.3s ease, height 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+            mix-blend-mode: difference;
+        }
+
+        #custom-cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+        body:hover #custom-cursor {
+            opacity: 1;
+        }
+
+        .hover-target:hover~#custom-cursor,
+        button:hover~#custom-cursor,
+        a:hover~#custom-cursor {
+            width: 60px;
+            height: 60px;
+            transform: translate(calc(var(--cursor-x) - 30px), calc(var(--cursor-y) - 30px));
+            border-color: #D4AF37;
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        /* --- Textures & Glows --- */
+        .film-grain {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9000;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .ambient-glow {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.02) 0%, transparent 60%);
+        }
+
+        .gold-text {
+            background: linear-gradient(135deg, #FDE68A 0%, #D4AF37 50%, #B45309 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* --- Animations --- */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .fade-out {
+            animation: fadeOut 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+                pointer-events: none;
+            }
+        }
+
+        .choice-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .choice-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .choice-btn:hover {
+            border-color: #D4AF37;
+            transform: translateX(10px);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .choice-btn:hover::before {
+            left: 100%;
+        }
+
+        .choice-letter {
+            color: #D4AF37;
+            font-family: 'Space Mono', monospace;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .choice-btn:hover .choice-letter {
+            opacity: 1;
+        }
+
+        #progress-bar {
+            transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .typewriter-text {
+            overflow: hidden;
+            border-right: .15em solid #D4AF37;
+            white-space: pre-wrap;
+            margin: 0 auto;
+            animation: blink-caret .75s step-end infinite;
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #D4AF37; }
+        }
+
+        .node-line {
+            width: 2px;
+            background: linear-gradient(to bottom, transparent, rgba(212,175,55,0.3), transparent);
+            height: 40px;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+
+<body class="selection:bg-gold selection:text-obsidian flex flex-col min-h-screen">
+
+    <div id="custom-cursor"></div>
+    <div class="film-grain"></div>
+    <div class="ambient-glow"></div>
+
+    <nav class="fixed w-full top-0 z-40 px-10 py-8 flex justify-between items-center pointer-events-none mix-blend-difference">
+        <a href="index.html" class="font-serif font-bold text-xl tracking-[0.2em] text-white pointer-events-auto hover-target flex items-center gap-3 transition-opacity hover:opacity-70">
+            <i class="fas fa-chevron-left text-xs text-gold"></i> PROJECT: RIPPLE
+        </a>
+        <div class="text-right hidden md:block">
+            <div class="text-[10px] tracking-widest text-gold font-mono uppercase opacity-70">Subject Profiling Routine</div>
+        </div>
+    </nav>
+
+    <!-- Progress indicator -->
+    <div class="fixed top-0 left-0 w-full h-1 bg-white/5 z-50">
+        <div id="progress-bar" class="h-full bg-gold w-0 shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>
+    </div>
+
+    <main class="flex-grow flex items-center justify-center relative z-10 px-6 py-24">
+        
+        <!-- Intro Screen -->
+        <div id="screen-intro" class="w-full max-w-3xl text-center fade-in">
+            <p class="font-mono text-xs tracking-[0.3em] mb-6 text-gold uppercase opacity-90">Simulation Initialization</p>
+            <h1 class="text-5xl md:text-7xl font-serif text-white mb-8 leading-tight">The Butterfly <br><span class="gold-text italic">Protocol</span></h1>
+            <div class="w-16 h-px bg-white/20 mx-auto mb-8"></div>
+            <p class="text-gray-400 font-light text-lg md:text-xl leading-relaxed mb-12 max-w-2xl mx-auto">
+                Every day, you make thousands of insignificant choices. A glance. A pause. A breath. 
+                <br><br>
+                To you, they are random. To the Mastermind, they are the precisely calibrated strings of a grand orchestration. Enter the simulation and walk your path.
+            </p>
+            <button onclick="startSimulation()" class="hover-target px-8 py-4 border border-gold text-gold font-mono text-xs tracking-widest uppercase hover:bg-gold hover:text-obsidian transition-all duration-500 tracking-[0.2em]">
+                Commence Routine
+            </button>
+        </div>
+
+        <!-- Question Container -->
+        <div id="screen-question" class="w-full max-w-4xl hidden">
+            <div class="flex justify-between items-end mb-16 border-b border-white/10 pb-6">
+                <div>
+                    <span id="q-phase" class="font-mono text-[10px] text-gray-500 tracking-[0.4em] uppercase block mb-2">Phase 01</span>
+                    <h2 id="q-title" class="text-3xl md:text-4xl font-serif text-white">The Awakening</h2>
+                </div>
+                <div class="font-mono text-gold text-sm opacity-50" id="q-counter">01 / 05</div>
+            </div>
+
+            <p id="q-text" class="text-xl md:text-2xl font-light text-gray-300 leading-relaxed mb-16 h-24">
+                The alarm sounds at 07:00 AM. Rain patters against the glass.
+            </p>
+
+            <div id="choices-container" class="flex flex-col space-y-4">
+                <!-- Choices injected by JS -->
+            </div>
+        </div>
+
+        <!-- Result / Orchestration Complete Screen -->
+        <div id="screen-result" class="w-full max-w-4xl hidden">
+            <div class="text-center mb-16">
+                <div class="w-20 h-20 mx-auto border border-gold rounded-full flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(212,175,55,0.15)] relative">
+                    <div class="absolute inset-0 rounded-full border-t-2 border-gold animate-spin" style="animation-duration: 3s;"></div>
+                    <i class="fas fa-check text-gold text-2xl"></i>
+                </div>
+                <h1 class="text-4xl md:text-6xl font-serif text-white mb-4">Orchestration <span class="gold-text italic">Complete</span></h1>
+                <p class="font-mono text-xs tracking-[0.3em] text-gray-500 uppercase">Analysis of subjective trajectory</p>
+            </div>
+
+            <div class="bg-[#0A0A0A] border border-[#1A1A1A] p-8 md:p-12 relative shadow-2xl">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-30"></div>
+                
+                <div class="font-mono text-[10px] text-gray-500 tracking-[0.2em] uppercase mb-8 border-b border-white/5 pb-4 flex justify-between">
+                    <span>Target Event Generated</span>
+                    <span>Status: Inevitable</span>
+                </div>
+
+                <div id="narrative-content" class="space-y-6 text-gray-300 font-light text-lg leading-relaxed">
+                    <!-- Narrative injected by JS -->
+                </div>
+
+                <div class="mt-12 pt-8 border-t border-white/5">
+                    <h3 class="font-serif text-2xl text-white mb-4 italic" id="final-consequence-title">The Consequence</h3>
+                    <p class="text-gold font-medium text-xl leading-relaxed" id="final-consequence-text"></p>
+                </div>
+            </div>
+
+            <div class="text-center mt-16">
+                <button onclick="location.reload()" class="hover-target px-8 py-4 border border-white/20 text-white font-mono text-xs tracking-widest uppercase hover:bg-white hover:text-obsidian transition-all duration-500">
+                    Recalibrate & Retry
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Custom Cursor ---
+        const root = document.documentElement;
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        let cursorX = mouseX, cursorY = mouseY;
+        document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+        function updateCursor() {
+            cursorX += (mouseX - cursorX) * 0.15; cursorY += (mouseY - cursorY) * 0.15;
+            root.style.setProperty('--cursor-x', `${cursorX}px`); root.style.setProperty('--cursor-y', `${cursorY}px`);
+            requestAnimationFrame(updateCursor);
+        }
+        updateCursor();
+
+        // --- Game Logic ---
+        const questions = [
+            {
+                phase: "Phase I",
+                title: "The Awakening",
+                text: "The alarm sounds at exactly 07:00 AM. A cold rain patters against the glass. The Mastermind observes your first move.",
+                choices: [
+                    { id: 'A', text: "Hit snooze and steal 10 more minutes of sleep.", narrative: "Delaying your departure by ten minutes shifted your temporal alignment, placing you behind the primary wave of morning commuters." },
+                    { id: 'B', text: "Rise immediately and begin the routine.", narrative: "Rising immediately locked you into the exact rhythm of the city's early surge, surrounding you with high-velocity urban flow." }
+                ]
+            },
+            {
+                phase: "Phase II",
+                title: "The Catalyst Intake",
+                text: "Your body requires fuel. You stand in your kitchen, contemplating the morning intake.",
+                choices: [
+                    { id: 'A', text: "Brew a strong black coffee.", narrative: "The sudden influx of caffeine increased your heart rate and physical pace by 14%, quickening your steps on the pavement." },
+                    { id: 'B', text: "Steep a cup of calming green tea.", narrative: "The subtle theanine of the green tea kept your baseline stress low, resulting in a relaxed, meandering walking pace." }
+                ]
+            },
+            {
+                phase: "Phase III",
+                title: "The Trajectory",
+                text: "You exit your building. The city awaits. You must choose your vector to the transit hub.",
+                choices: [
+                    { id: 'A', text: "Take the direct, crowded avenue.", narrative: "Choosing the dense avenue increased your micro-interactions—brushing shoulders, side-stepping pedestrians—amplifying environmental chaos." },
+                    { id: 'B', text: "Take the quiet alleyway shortcut.", narrative: "The isolated alleyway removed you from the crowd, exposing you directly to localized, unguarded anomalies." }
+                ]
+            },
+            {
+                phase: "Phase IV",
+                title: "The Anomaly",
+                text: "Mid-stride, you notice something out of place: A pristine, reflective silver coin resting perfectly on a grate.",
+                choices: [
+                    { id: 'A', text: "Stop and pick it up.", narrative: "Halting your momentum to retrieve the coin cost you exactly 4.2 seconds and altered your physical posture at a critical moment." },
+                    { id: 'B', text: "Ignore it and keep walking.", narrative: "Ignoring the anomaly maintained your velocity, preventing any deviation in your calculated forward trajectory." }
+                ]
+            },
+            {
+                phase: "Phase V",
+                title: "The Interaction",
+                text: "Nearing your destination, a frantic stranger bumps into you, dropping a stack of important-looking papers.",
+                choices: [
+                    { id: 'A', text: "Kneel down to help them gather the papers.", narrative: "Engaging with the stranger created a prolonged spatial obstruction on the sidewalk, forcing others to reroute around you." },
+                    { id: 'B', text: "Mutter an apology but keep moving.", narrative: "Bypassing the fallen stranger allowed you to breach the building entrance before the automatic doors could cycle shut." }
+                ]
+            }
+        ];
+
+        const endings = [
+            {
+                condition: (counts) => counts.A >= 4,
+                title: "The Corporate Collapse",
+                text: "Your delays and interventions placed you directly in the path of a speeding courier. The collision destroyed a hard drive carrying vital merger documents for a Fortune 500 company. By noon, the deal collapsed, stock prices plummeted, and a financial empire crumbled. All because you hit snooze."
+            },
+            {
+                condition: (counts) => counts.B >= 4,
+                title: "The Phantom Heir",
+                text: "Your sheer velocity and refusal to deviate put you on an elevator exactly 3 minutes early. You shared the ride with an elderly billionaire experiencing sudden cardiac arrest. Because you were there to catch his fall, he survived, altering his will to leave his entire fortune to charity instead of his corrupt family. A dynasty erased by green tea."
+            },
+            {
+                condition: (counts) => counts.A === 3 || (counts.A === 2 && counts.B === 3), // Mixed
+                title: "The Butterfly Assassin",
+                text: "Your erratic combination of haste and hesitation caused you to bump a cafe table. A spilled coffee forced a politician to return home to change. Because he was absent for a critical legislative vote, a controversial surveillance bill failed by a single margin. Millions of citizens retained their privacy due to a dropped silver coin."
+            },
+            {
+                condition: (counts) => true, // Fallback
+                title: "The Domino Effect",
+                text: "Your seemingly chaotic choices culminated perfectly. A delayed step, an altered path—they aligned to distract a truck driver for a fraction of a second. The resulting traffic jam prevented a coordinated heist on the other side of the city. The Mastermind smiles. The strings were pulled flawlessly."
+            }
+        ];
+
+        let currentStep = 0;
+        let userChoices = []; // Array of 'A' or 'B'
+        let narrativeLog = [];
+
+        const screenIntro = document.getElementById('screen-intro');
+        const screenQuestion = document.getElementById('screen-question');
+        const screenResult = document.getElementById('screen-result');
+        const progressBar = document.getElementById('progress-bar');
+
+        function startSimulation() {
+            screenIntro.classList.add('fade-out');
+            setTimeout(() => {
+                screenIntro.classList.add('hidden');
+                screenIntro.classList.remove('fade-out');
+                
+                screenQuestion.classList.remove('hidden');
+                screenQuestion.classList.add('fade-in');
+                
+                renderQuestion();
+            }, 800);
+        }
+
+        function renderQuestion() {
+            if (currentStep >= questions.length) {
+                finishSimulation();
+                return;
+            }
+
+            // Update Progress
+            const progress = ((currentStep) / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+
+            const q = questions[currentStep];
+            
+            document.getElementById('q-phase').innerText = q.phase;
+            document.getElementById('q-title').innerText = q.title;
+            document.getElementById('q-counter').innerText = `0${currentStep + 1} / 0${questions.length}`;
+            
+            // Typewriter effect for question text
+            const qText = document.getElementById('q-text');
+            qText.innerHTML = '';
+            qText.classList.remove('typewriter-text');
+            void qText.offsetWidth; // trigger reflow
+            qText.innerText = q.text;
+            
+            const container = document.getElementById('choices-container');
+            container.innerHTML = '';
+
+            // Animate choices in
+            q.choices.forEach((choice, index) => {
+                const btn = document.createElement('button');
+                btn.className = `choice-btn w-full text-left p-6 bg-[#0A0A0A] flex items-center hover-target opacity-0`;
+                btn.style.animation = `fadeIn 0.5s ease forwards ${0.3 + (index * 0.1)}s`;
+                btn.innerHTML = `
+                    <span class="choice-letter text-xl w-12 shrink-0">[${choice.id}]</span>
+                    <span class="text-gray-300 font-light text-lg">${choice.text}</span>
+                `;
+                btn.onclick = () => makeChoice(choice.id, choice.narrative);
+                container.appendChild(btn);
+            });
+        }
+
+        function makeChoice(choiceId, narrative) {
+            userChoices.push(choiceId);
+            narrativeLog.push(narrative);
+            
+            screenQuestion.classList.remove('fade-in');
+            screenQuestion.classList.add('fade-out');
+            
+            setTimeout(() => {
+                currentStep++;
+                screenQuestion.classList.remove('fade-out');
+                screenQuestion.classList.add('fade-in');
+                renderQuestion();
+            }, 600);
+        }
+
+        function finishSimulation() {
+            progressBar.style.width = `100%`;
+            
+            screenQuestion.classList.remove('fade-in');
+            screenQuestion.classList.add('fade-out');
+
+            setTimeout(() => {
+                screenQuestion.classList.add('hidden');
+                screenResult.classList.remove('hidden');
+                screenResult.classList.add('fade-in');
+                
+                generateEnding();
+            }, 800);
+        }
+
+        function generateEnding() {
+            const container = document.getElementById('narrative-content');
+            container.innerHTML = '';
+
+            // Add base narrative
+            const baseStr = document.createElement('p');
+            baseStr.innerHTML = `<span class="text-white font-medium">Step 00:</span> The subject initialized their day entirely unaware of the observation.`;
+            container.appendChild(baseStr);
+
+            // Add logged narratives with small lines connecting them
+            narrativeLog.forEach((text, i) => {
+                const line = document.createElement('div');
+                line.className = 'node-line';
+                container.appendChild(line);
+
+                const p = document.createElement('p');
+                // delay rendering for cool effect
+                p.style.opacity = '0';
+                p.style.transform = 'translateY(10px)';
+                p.style.transition = 'all 0.5s ease';
+                p.innerHTML = `<span class="text-gold font-medium">Step 0${i + 1}:</span> ${text}`;
+                container.appendChild(p);
+
+                setTimeout(() => {
+                    p.style.opacity = '1';
+                    p.style.transform = 'translateY(0)';
+                }, 500 + (i * 600));
+            });
+
+            // Calculate ending
+            const counts = { A: 0, B: 0 };
+            userChoices.forEach(c => counts[c]++);
+            
+            let finalEnd = endings[endings.length - 1]; // fallback
+            for (let end of endings) {
+                if (end.condition(counts)) {
+                    finalEnd = end;
+                    break;
+                }
+            }
+
+            setTimeout(() => {
+                document.getElementById('final-consequence-title').innerText = finalEnd.title;
+                document.getElementById('final-consequence-text').innerText = finalEnd.text;
+                
+                // Flash effect
+                const flash = document.createElement('div');
+                flash.style.position = 'fixed';
+                flash.style.inset = '0';
+                flash.style.backgroundColor = 'white';
+                flash.style.zIndex = '99999';
+                flash.style.pointerEvents = 'none';
+                flash.style.transition = 'opacity 1s ease-out';
+                document.body.appendChild(flash);
+                
+                requestAnimationFrame(() => {
+                    flash.style.opacity = '0';
+                    setTimeout(() => flash.remove(), 1000);
+                });
+
+            }, 500 + (narrativeLog.length * 600) + 800);
+        }
+    </script>
+</body>
+</html>
